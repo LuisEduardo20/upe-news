@@ -1,17 +1,30 @@
+import { Pool } from "pg";
 import cron from "node-cron";
 import { poolMaster, poolSlave } from "./services/databases";
 
-// cron.schedule("* * * * *", () => {
+const getDataFromDatabase = (pool: Pool) => {
+  pool.connect();
+  pool.query(`SELECT * FROM news`, (err, res) => {
+    if (err) {
+      console.log(err);
+      return null;
+    } else {
+      return res.rows;
+    }
+  });
+};
+
+//TODO implementar função
+const syncDatabases = () => {};
+
+// cron.schedule("* * * * * *", () => {
 cron.schedule("* * * * *", () => {
-  console.log("Conectando aos bancos");
+  let masterNews = null;
+  let slaveNews = null;
 
-  poolMaster.connect();
-  poolMaster.query(`SELECT * FROM news`, (err, res) => {
-    console.log("res:", res.rows);
-  });
+  masterNews = getDataFromDatabase(poolMaster);
 
-  poolSlave.connect();
-  poolSlave.query(`SELECT * FROM news`, (err, res) => {
-    console.log("res:", res.rows);
-  });
+  slaveNews = getDataFromDatabase(poolSlave);
+
+  //TODO Pensar na lógica de inserção dos dados
 });

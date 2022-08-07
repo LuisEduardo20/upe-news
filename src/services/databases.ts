@@ -28,7 +28,7 @@ export const poolSlave = new Pool({
 
 poolMaster.on("error", (err, client) => {
   console.error("Error on master database", err);
-  process.exit(-1);
+  // process.exit(-1);
 });
 
 poolMaster.on("connect", (err) => {
@@ -37,7 +37,7 @@ poolMaster.on("connect", (err) => {
 
 poolSlave.on("error", (err, client) => {
   console.error("Error on slave database:", err);
-  process.exit(-1);
+  // process.exit(-1);
 });
 
 poolSlave.on("connect", (err) => {
