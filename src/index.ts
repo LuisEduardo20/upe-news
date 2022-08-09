@@ -2,29 +2,74 @@ import { Pool } from "pg";
 import cron from "node-cron";
 import { poolMaster, poolSlave } from "./services/databases";
 
-const getDataFromDatabase = (pool: Pool) => {
-  pool.connect();
-  pool.query(`SELECT * FROM news`, (err, res) => {
-    if (err) {
-      console.log(err);
-      return null;
-    } else {
-      return res.rows;
-    }
-  });
+const formatDate = (date: string) => {
+  const onlyDate = date.split(" ")[0];
+
+  const formatedDate =
+    onlyDate.split("/").reverse().join().replace(/,/g, "-") +
+    " " +
+    date.split(" ")[1];
+
+  return formatedDate;
 };
 
-//TODO implementar função
-const syncDatabases = () => {};
+const getDataFromDatabase = async (pool: Pool) => {
+  try {
+    const now = formatDate(
+      new Date().toLocaleString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+      })
+    );
+    const nowTwoMinutesBefore = formatDate(
+      new Date(new Date().getTime() - 120000).toLocaleString(
+        "pt-BR",
+        {
+          timeZone: "America/Sao_Paulo",
+        }
+      )
+    );
 
-// cron.schedule("* * * * * *", () => {
-cron.schedule("* * * * *", () => {
+    const query = `SELECT * FROM 
+                      news 
+                    WHERE 
+                      created_at 
+                    BETWEEN 
+                      '${now}'
+                    AND
+                      '${nowTwoMinutesBefore}'`;
+
+    const { rows } = await pool.query(query);
+
+    return rows.length > 0 ? rows : null;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const syncDatabases = (
+  masterNews: any[] | null = null,
+  slaveNews: any[] | null = null
+) => {
+  if (masterNews) {
+    try {
+      //TODO insert in slave database
+    } catch (error) {}
+  }
+
+  if (slaveNews) {
+    try {
+      //TODO insert in master database
+    } catch (error) {}
+  }
+};
+
+cron.schedule("*/10 * * * * *", async () => {
   let masterNews = null;
   let slaveNews = null;
 
-  masterNews = getDataFromDatabase(poolMaster);
+  masterNews = await getDataFromDatabase(poolMaster);
 
-  slaveNews = getDataFromDatabase(poolSlave);
+  slaveNews = await getDataFromDatabase(poolSlave);
 
-  //TODO Pensar na lógica de inserção dos dados
+  syncDatabases(masterNews, slaveNews);
 });
