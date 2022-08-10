@@ -2,43 +2,24 @@ import { Pool } from "pg";
 import cron from "node-cron";
 import { poolMaster, poolSlave } from "./services/databases";
 
-const formatDate = (date: string) => {
-  const onlyDate = date.split(" ")[0];
-
-  const formatedDate =
-    onlyDate.split("/").reverse().join().replace(/,/g, "-") +
-    " " +
-    date.split(" ")[1];
-
-  return formatedDate;
-};
+type News = {};
 
 const getDataFromDatabase = async (pool: Pool) => {
   try {
-    const now = formatDate(
-      new Date().toLocaleString("pt-BR", {
-        timeZone: "America/Sao_Paulo",
-      })
-    );
-    const nowTwoMinutesBefore = formatDate(
-      new Date(new Date().getTime() - 120000).toLocaleString(
-        "pt-BR",
-        {
-          timeZone: "America/Sao_Paulo",
-        }
-      )
-    );
-
-    const query = `SELECT * FROM 
+    const query = `
+                    SELECT 
+                      title, body, author
+                    FROM 
                       news 
-                    WHERE 
-                      created_at 
-                    BETWEEN 
-                      '${now}'
-                    AND
-                      '${nowTwoMinutesBefore}'`;
+                    ORDER BY
+                      created_at DESC
+                    LIMIT 6`;
 
     const { rows } = await pool.query(query);
+
+    const filteredNews = rows.filter((news) => {
+      return;
+    });
 
     return rows.length > 0 ? rows : null;
   } catch (error) {
@@ -46,24 +27,54 @@ const getDataFromDatabase = async (pool: Pool) => {
   }
 };
 
-const syncDatabases = (
+const syncDatabases = async (
   masterNews: any[] | null = null,
   slaveNews: any[] | null = null
 ) => {
   if (masterNews) {
     try {
-      //TODO insert in slave database
-    } catch (error) {}
+      await Promise.all(
+        masterNews.map((news) => {
+          const { title, body, author } = news;
+
+          const query = `
+                    INSERT INTO
+                      news
+                      (title, body, author)
+                    VALUES
+                      ('${title}', '${body}', '${author}')`;
+
+          return poolSlave.query(query);
+        })
+      );
+    } catch (error) {
+      console.log("error 1:", error);
+    }
   }
 
   if (slaveNews) {
     try {
-      //TODO insert in master database
-    } catch (error) {}
+      await Promise.all(
+        slaveNews.map((news) => {
+          const { title, body, author } = news;
+
+          const query = `
+                    INSERT INTO
+                      news
+                      (title, body, author)
+                    VALUES
+                      ('${title}', '${body}', '${author}')`;
+
+          return poolMaster.query(query);
+        })
+      );
+    } catch (error) {
+      console.log("error 2:", error);
+    }
   }
 };
 
-cron.schedule("*/10 * * * * *", async () => {
+cron.schedule("*/2 * * * *", async () => {
   let masterNews = null;
   let slaveNews = null;
 
